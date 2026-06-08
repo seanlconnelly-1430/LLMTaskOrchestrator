@@ -5,8 +5,7 @@ multiple tasks and tracks their progress.
 
 ## Demo
 
-Open `/tmp/workspace/seanlconnelly-1430/LLMTaskOrchestrator/index.html` in a browser to view
-the interactive task orchestration demo.
+Open `index.html` in a browser to view the interactive task orchestration demo.
 
 The demo shows:
 
@@ -20,7 +19,7 @@ The demo shows:
 You can open the file directly in a browser, or serve the repository locally:
 
 ```bash
-cd /tmp/workspace/seanlconnelly-1430/LLMTaskOrchestrator
+cd path/to/LLMTaskOrchestrator
 python3 -m http.server 8000
 ```
 

@@ -411,9 +411,6 @@
         renderTasks();
         updateProgress();
 
-        if (currentStep >= timeline.length) {
-          startButton.disabled = true;
-        }
       }
 
       startButton.addEventListener("click", () => {
@@ -438,7 +435,6 @@
       });
 
       resetButton.addEventListener("click", () => {
-        startButton.disabled = false;
         resetState();
       });
 
