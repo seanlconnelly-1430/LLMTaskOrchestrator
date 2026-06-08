@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task Orchestrator Demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-alt: #1f2937;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --border: #334155;
+        --accent: #38bdf8;
+        --pending: #64748b;
+        --running: #f59e0b;
+        --complete: #22c55e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, sans-serif;
+        background: linear-gradient(180deg, #020617, #111827);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin-top: 0;
+      }
+
+      .intro {
+        display: grid;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 10px 16px;
+        font: inherit;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--panel);
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: var(--accent);
+        color: #082f49;
+        border-color: transparent;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 20px;
+      }
+
+      .panel {
+        background: rgba(17, 24, 39, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+      }
+
+      .status-card {
+        background: var(--panel-alt);
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 18px;
+      }
+
+      .status-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        background: #0f172a;
+        border: 1px solid var(--border);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--pending);
+      }
+
+      .task-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .task {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+        background: #0b1120;
+      }
+
+      .task header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+      }
+
+      .task small,
+      .muted {
+        color: var(--muted);
+      }
+
+      .task-status {
+        text-transform: capitalize;
+      }
+
+      .task[data-status="pending"] .dot,
+      .task[data-status="pending"] .task-status {
+        color: var(--pending);
+        background-color: var(--pending);
+      }
+
+      .task[data-status="running"] .dot,
+      .task[data-status="running"] .task-status {
+        color: var(--running);
+        background-color: var(--running);
+      }
+
+      .task[data-status="completed"] .dot,
+      .task[data-status="completed"] .task-status {
+        color: var(--complete);
+        background-color: var(--complete);
+      }
+
+      .task[data-status="running"] {
+        border-color: var(--running);
+      }
+
+      .task[data-status="completed"] {
+        border-color: var(--complete);
+      }
+
+      .task-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: transparent !important;
+      }
+
+      .messages,
+      .log {
+        display: grid;
+        gap: 10px;
+        max-height: 420px;
+        overflow: auto;
+      }
+
+      .message,
+      .log-entry {
+        border: 1px solid var(--border);
+        background: #0b1120;
+        border-radius: 14px;
+        padding: 12px 14px;
+      }
+
+      .message strong,
+      .log-entry strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      @media (max-width: 850px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="intro">
+        <div>
+          <h1>Coordinator and Task Demo</h1>
+          <p>
+            This demo shows a coordinator dispatching dependent tasks, receiving status
+            updates, and producing a final completion summary.
+          </p>
+        </div>
+        <div class="controls">
+          <button id="start" class="primary" type="button">Start demo</button>
+          <button id="step" type="button">Advance one step</button>
+          <button id="reset" type="button">Reset</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="panel">
+          <h2>Coordinator view</h2>
+          <div class="status-card">
+            <div class="status-line">
+              <div>
+                <small class="muted">Coordinator state</small>
+                <p id="coordinator-state">Waiting to dispatch tasks.</p>
+              </div>
+              <div class="pill">
+                <span class="dot" id="coordinator-dot"></span>
+                <span id="progress-label">0 / 3 tasks complete</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-list" id="task-list"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Messages and event log</h2>
+          <div class="messages" id="messages"></div>
+          <h2 style="margin-top: 24px">Event log</h2>
+          <div class="log" id="log"></div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const taskDefinitions = [
+        {
+          id: "plan",
+          title: "Plan execution",
+          description: "Coordinator identifies the work and dispatch order.",
+          dependsOn: [],
+        },
+        {
+          id: "build",
+          title: "Build response",
+          description: "Worker produces the requested output after planning finishes.",
+          dependsOn: ["plan"],
+        },
+        {
+          id: "verify",
+          title: "Verify result",
+          description: "Final worker validates the output before coordinator completes.",
+          dependsOn: ["build"],
+        },
+      ];
+
+      const timeline = [
+        {
+          state: "Dispatching planning task.",
+          message: { from: "Coordinator", to: "Plan execution", body: "Define execution steps." },
+          updates: [{ id: "plan", status: "running" }],
+        },
+        {
+          state: "Planning task completed. Dispatching build task.",
+          message: { from: "Plan execution", to: "Coordinator", body: "Execution order is ready." },
+          updates: [
+            { id: "plan", status: "completed" },
+            { id: "build", status: "running" },
+          ],
+        },
+        {
+          state: "Build task completed. Dispatching verification task.",
+          message: { from: "Build response", to: "Coordinator", body: "Draft response generated." },
+          updates: [
+            { id: "build", status: "completed" },
+            { id: "verify", status: "running" },
+          ],
+        },
+        {
+          state: "All tasks completed. Coordinator is reporting final success.",
+          message: { from: "Verify result", to: "Coordinator", body: "Output validated successfully." },
+          updates: [{ id: "verify", status: "completed" }],
+        },
+      ];
+
+      const coordinatorState = document.getElementById("coordinator-state");
+      const coordinatorDot = document.getElementById("coordinator-dot");
+      const progressLabel = document.getElementById("progress-label");
+      const taskList = document.getElementById("task-list");
+      const messages = document.getElementById("messages");
+      const log = document.getElementById("log");
+      const startButton = document.getElementById("start");
+      const stepButton = document.getElementById("step");
+      const resetButton = document.getElementById("reset");
+
+      let tasks = [];
+      let currentStep = 0;
+      let intervalId = null;
+
+      function resetState() {
+        tasks = taskDefinitions.map((task) => ({ ...task, status: "pending" }));
+        currentStep = 0;
+        clearInterval(intervalId);
+        intervalId = null;
+        coordinatorState.textContent = "Waiting to dispatch tasks.";
+        coordinatorDot.style.background = "var(--pending)";
+        messages.innerHTML = "";
+        log.innerHTML = "";
+        renderTasks();
+        updateProgress();
+      }
+
+      function renderTasks() {
+        taskList.innerHTML = "";
+
+        for (const task of tasks) {
+          const article = document.createElement("article");
+          article.className = "task";
+          article.dataset.status = task.status;
+          article.innerHTML = `
+            <header>
+              <div>
+                <h3>${task.title}</h3>
+                <p>${task.description}</p>
+              </div>
+              <span class="task-status">
+                <span class="dot"></span>
+                ${task.status}
+              </span>
+            </header>
+            <small>Depends on: ${task.dependsOn.length ? task.dependsOn.join(", ") : "none"}</small>
+          `;
+          taskList.appendChild(article);
+        }
+      }
+
+      function updateProgress() {
+        const completeCount = tasks.filter((task) => task.status === "completed").length;
+        progressLabel.textContent = `${completeCount} / ${tasks.length} tasks complete`;
+        if (completeCount === tasks.length) {
+          coordinatorDot.style.background = "var(--complete)";
+        } else if (tasks.some((task) => task.status === "running")) {
+          coordinatorDot.style.background = "var(--running)";
+        } else {
+          coordinatorDot.style.background = "var(--pending)";
+        }
+      }
+
+      function prependMessage(entry) {
+        const element = document.createElement("div");
+        element.className = "message";
+        element.innerHTML = `
+          <strong>${entry.from} → ${entry.to}</strong>
+          <div>${entry.body}</div>
+        `;
+        messages.prepend(element);
+      }
+
+      function prependLog(text) {
+        const element = document.createElement("div");
+        element.className = "log-entry";
+        element.innerHTML = `<strong>Step ${currentStep}</strong><div>${text}</div>`;
+        log.prepend(element);
+      }
+
+      function applyNextStep() {
+        if (currentStep >= timeline.length) {
+          clearInterval(intervalId);
+          intervalId = null;
+          return;
+        }
+
+        const step = timeline[currentStep];
+        currentStep += 1;
+        coordinatorState.textContent = step.state;
+
+        for (const update of step.updates) {
+          const task = tasks.find((item) => item.id === update.id);
+          if (task) {
+            task.status = update.status;
+          }
+        }
+
+        prependMessage(step.message);
+        prependLog(step.state);
+        renderTasks();
+        updateProgress();
+
+        if (currentStep >= timeline.length) {
+          startButton.disabled = true;
+        }
+      }
+
+      startButton.addEventListener("click", () => {
+        if (intervalId || currentStep >= timeline.length) {
+          return;
+        }
+
+        applyNextStep();
+        intervalId = window.setInterval(() => {
+          applyNextStep();
+          if (currentStep >= timeline.length) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+        }, 1400);
+      });
+
+      stepButton.addEventListener("click", () => {
+        if (currentStep < timeline.length) {
+          applyNextStep();
+        }
+      });
+
+      resetButton.addEventListener("click", () => {
+        startButton.disabled = false;
+        resetState();
+      });
+
+      resetState();
+    </script>
+  </body>
+</html>
