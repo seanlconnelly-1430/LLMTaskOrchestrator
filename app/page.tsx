@@ -484,6 +484,15 @@ function CoordinatorPanel({
             {result.status === 'error' && (
               <span className="text-red-400 text-xs font-medium">✗ Error</span>
             )}
+            {result.status === 'done' && (
+              <button
+                onClick={() => downloadMarkdown(result.content)}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1 text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md text-zinc-300 hover:text-zinc-100 transition-colors"
+              >
+                <DownloadIcon />
+                Save as Markdown
+              </button>
+            )}
           </div>
           <div className="p-4 overflow-y-auto max-h-96 bg-zinc-950/50">
             <pre className="text-sm text-zinc-200 font-mono whitespace-pre-wrap leading-relaxed">
@@ -690,4 +699,24 @@ function TrashIcon() {
       />
     </svg>
   )
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  )
+}
+
+function downloadMarkdown(content: string) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const filename = `synthesis-${timestamp}.md`
+  const blob = new Blob([content], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
